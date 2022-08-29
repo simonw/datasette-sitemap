@@ -14,12 +14,12 @@ import pytest
             "SQL query must return a path column",
         ),
         ("select 'path' as path", None, None, "Path &#39;path&#39; must start with /"),
-        ("select '/' as path", None, ["http://localhost/"], None),
-        ("select path from urls", "two", ["http://localhost/3"], None),
+        ("select '/' as path", None, ["/"], None),
+        ("select path from urls", "two", ["/3"], None),
         (
             "select '/' as path union select '/2' as path",
             None,
-            ["http://localhost/", "http://localhost/2"],
+            ["/", "/2"],
             None,
         ),
         # This returns 50001 rows, but we should only get 50000
@@ -35,12 +35,15 @@ import pytest
         ) select path from paths
             """,
             None,
-            ["http://localhost/{}".format(i) for i in range(50000)],
+            ["/{}".format(i) for i in range(50000)],
             None,
         ),
     ),
 )
-async def test_datasette_sitemap(sql, database, expected_paths, expected_error):
+@pytest.mark.parametrize("base_url", [None, "http://example.com"])
+async def test_datasette_sitemap(
+    sql, database, expected_paths, expected_error, base_url
+):
     datasette = Datasette(
         memory=True,
         metadata={
@@ -48,6 +51,7 @@ async def test_datasette_sitemap(sql, database, expected_paths, expected_error):
                 "datasette-sitemap": {
                     "sql": sql,
                     "database": database,
+                    "base_url": base_url,
                 }
             }
         },
@@ -57,6 +61,7 @@ async def test_datasette_sitemap(sql, database, expected_paths, expected_error):
         await two.execute_write_script(
             """
             create table if not exists urls (path text);
+            delete from urls;
             insert into urls values ('/3');
         """
         )
@@ -66,15 +71,16 @@ async def test_datasette_sitemap(sql, database, expected_paths, expected_error):
         assert expected_error in response.text
     else:
         assert response.status_code == 200
-        # It should be XML
         assert response.headers["content-type"] == "application/xml"
         # Parse the XML
         tree = ET.fromstring(response.text)
-        # Pull out the <urlset> <url> <loc> elements
-        paths = [
+        urls = [
             url.text
             for url in tree.findall(
                 "{http://www.sitemaps.org/schemas/sitemap/0.9}url/{http://www.sitemaps.org/schemas/sitemap/0.9}loc"
             )
         ]
-        assert paths == expected_paths
+        expected_urls = [
+            (base_url or "http://localhost") + path for path in expected_paths
+        ]
+        assert urls == expected_urls
