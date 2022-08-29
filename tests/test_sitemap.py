@@ -84,3 +84,25 @@ async def test_datasette_sitemap(
             (base_url or "http://localhost") + path for path in expected_paths
         ]
         assert urls == expected_urls
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("base_url", [None, "http://example.com"])
+async def test_datasette_sitemap_robots_txt(base_url):
+    datasette = Datasette(
+        memory=True,
+        metadata={
+            "plugins": {
+                "datasette-sitemap": {
+                    "sql": "select '/' as path",
+                    "base_url": base_url,
+                }
+            }
+        },
+    )
+    response = await datasette.client.get("/robots.txt")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "text/plain; charset=utf-8"
+    assert response.text == "Sitemap: {}/sitemap.xml".format(
+        base_url or "http://localhost"
+    )

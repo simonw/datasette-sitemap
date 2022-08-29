@@ -42,7 +42,7 @@ def _make_url_maker(datasette):
 
 def robots_txt(datasette, request):
     url = _make_url_maker(datasette)
-    return Response.text("Sitemap: {}".format(url(datasette, request, "/sitemap.xml")))
+    return Response.text("Sitemap: {}".format(url(request, "/sitemap.xml")))
 
 
 class SitemapError(Exception):
