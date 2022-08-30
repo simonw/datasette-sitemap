@@ -13,6 +13,14 @@ Install this plugin in the same environment as Datasette.
 
     datasette install datasette-sitemap
 
+## Demo
+
+This plugin is used for the sitemap on [til.simonwillison.net](https://til.simonwillison.net/):
+
+- https://til.simonwillison.net/sitemap.xml
+
+Here's [the configuration](https://github.com/simonw/til/blob/d4f67743a90a67100b46145986b2dec6f8d96583/metadata.yaml#L14-L16) used for that sitemap.
+
 ## Usage
 
 Once configured, this plugin adds a sitemap at `/sitemap.xml` with a list of URLs.
