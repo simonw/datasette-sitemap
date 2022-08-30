@@ -1,4 +1,4 @@
-from datasette import hookimpl, Response
+from datasette import hookimpl, NotFound, Response
 
 
 class SitemapConfig:
@@ -22,9 +22,13 @@ def _sitemap_config(datasette):
 @hookimpl
 def register_routes(datasette):
     if _sitemap_config(datasette):
-        return [
-            ("^/sitemap.xml$", sitemap_xml),
-        ]
+        return [("^/sitemap.xml$", sitemap_xml)]
+
+
+@hookimpl
+def handle_exception(datasette, request, exception):
+    if request and request.path == "/robots.txt" and isinstance(exception, NotFound):
+        return robots_txt(datasette, request)
 
 
 def _make_url_maker(datasette):
@@ -37,6 +41,11 @@ def _make_url_maker(datasette):
 
 class SitemapError(Exception):
     pass
+
+
+def robots_txt(datasette, request):
+    url = _make_url_maker(datasette)
+    return Response.text("Sitemap: {}".format(url(request, "/sitemap.xml")))
 
 
 async def sitemap_xml(datasette, request):
