@@ -97,6 +97,33 @@ You can take full control of the sitemap by installing and configuring the [data
 
 This plugin will add the `Sitemap:` line even if you are using `datasette-block-robots` for the rest of your `robots.txt` file.
 
+## Adding paths to the sitemap from other plugins
+
+This plugin adds a new [plugin hook](https://docs.datasette.io/en/stable/plugin_hooks.html) to Datasete called `sitemap_extra_paths()` which can be used by other plugins to add their own additional lines to the `sitemap.xml` file.
+
+The hook accepts these optional parameters:
+
+- `datasette`: The current [Datasette instance](https://docs.datasette.io/en/stable/internals.html#datasette-class). You can use this to execute SQL queries or read plugin configuration settings.
+- `request`: The [Request object](https://docs.datasette.io/en/stable/internals.html#request-object) representing the incoming request to `/sitemap.xml`.
+
+The hook should return a list of strings, each representing a path to be added to the sitemap. Each path must begin with a `/`.
+
+It can also return an `async def` function, which will be awaited and used to generate a list of lines. Use this option if you need to make `await` calls inside you hook implementation.
+
+This example uses the hook to add two extra paths, one of which came from a SQL query:
+
+```python
+from datasette import hookimpl
+
+@hookimpl
+def sitemap_extra_paths(datasette):
+    async def inner():
+        db = datasette.get_database()
+        path_from_db = (await db.execute("select '/example'")).single_value()
+        return ["/about", path_from_db]
+    return inner
+```
+
 ## Development
 
 To set up this plugin locally, first checkout the code. Then create a new virtual environment:

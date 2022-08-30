@@ -1,4 +1,9 @@
 from datasette import hookimpl, NotFound, Response
+from datasette.utils import await_me_maybe
+from datasette.plugins import pm
+from . import hookspecs
+
+pm.add_hookspecs(hookspecs)
 
 
 class SitemapConfig:
@@ -20,9 +25,8 @@ def _sitemap_config(datasette):
 
 
 @hookimpl
-def register_routes(datasette):
-    if _sitemap_config(datasette):
-        return [("^/sitemap.xml$", sitemap_xml)]
+def register_routes():
+    return [("^/sitemap.xml$", sitemap_xml)]
 
 
 @hookimpl
@@ -55,16 +59,31 @@ async def sitemap_xml(datasette, request):
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     ]
-    db = datasette.get_database(config.database)
-    if config.sql:
-        for row in await db.execute(config.sql + " limit 50000"):
+
+    # First get paths provided by plugins
+    paths = []
+    for more_paths in pm.hook.sitemap_extra_paths(datasette=datasette, request=request):
+        more_paths = await await_me_maybe(more_paths)
+        if more_paths:
+            paths.extend(more_paths)
+
+    # Add any configured using the SQL query
+    if config and config.sql:
+        db = datasette.get_database(config.database)
+        # Sitemap limit is 50,000
+        limit = 50000 - len(paths)
+        for row in await db.execute("{} limit {}".format(config.sql, limit)):
             try:
                 path = row["path"]
             except IndexError:
                 raise SitemapError("SQL query must return a path column")
-            if not path.startswith("/"):
-                raise SitemapError("Path '{}' must start with /".format(path))
-            content.append("<url><loc>{}</loc></url>".format(url(request, row["path"])))
+            paths.append(row["path"])
+
+    # Verify those paths
+    for path in paths:
+        if not path.startswith("/"):
+            raise SitemapError("Path '{}' must start with /".format(path))
+        content.append("<url><loc>{}</loc></url>".format(url(request, path)))
     content.append("</urlset>")
     return Response("\n".join(content), 200, content_type="application/xml")
 

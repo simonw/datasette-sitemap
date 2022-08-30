@@ -1,3 +1,4 @@
+from datasette import hookimpl
 from datasette.app import Datasette
 from datasette.plugins import pm
 from xml.etree import ElementTree as ET
@@ -82,14 +83,7 @@ async def test_datasette_sitemap(
     else:
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/xml"
-        # Parse the XML
-        tree = ET.fromstring(response.text)
-        urls = [
-            url.text
-            for url in tree.findall(
-                "{http://www.sitemaps.org/schemas/sitemap/0.9}url/{http://www.sitemaps.org/schemas/sitemap/0.9}loc"
-            )
-        ]
+        urls = parse_urls_from_xml(response.text)
         expected_urls = [
             (base_url or "http://localhost") + path for path in expected_paths
         ]
@@ -127,3 +121,51 @@ async def test_robots_txt_if_no_block_robots_plugin():
         assert response.text == "Sitemap: http://localhost/sitemap.xml"
     finally:
         pm.register(block_robots_plugin, name="block_robots")
+
+
+@pytest.mark.asyncio
+async def test_extra_paths_plugin_hook():
+    class TestPlugin:
+        __name__ = "TestPlugin"
+
+        @hookimpl
+        def sitemap_extra_paths(self, request):
+            return ["/one", "/two?q={}".format(request.args["q"])]
+
+    class TestPluginAsync:
+        __name__ = "TestPluginAsync"
+
+        @hookimpl
+        def sitemap_extra_paths(self, datasette):
+            async def inner():
+                db = datasette.get_database()
+                result = await db.execute("select 'three'")
+                return ["/{}".format(result.single_value())]
+
+            return inner
+
+    pm.register(TestPlugin(), name="undo")
+    pm.register(TestPluginAsync(), name="undo2")
+    try:
+        ds = Datasette([], memory=True)
+        response = await ds.client.get("/sitemap.xml?q=abc")
+        assert response.status_code == 200
+        urls = set(parse_urls_from_xml(response.text))
+        assert urls == {
+            "http://localhost/three",
+            "http://localhost/one",
+            "http://localhost/two?q=abc",
+        }
+    finally:
+        pm.unregister(name="undo")
+        pm.unregister(name="undo2")
+
+
+def parse_urls_from_xml(text):
+    tree = ET.fromstring(text)
+    return [
+        url.text
+        for url in tree.findall(
+            "{http://www.sitemaps.org/schemas/sitemap/0.9}url/{http://www.sitemaps.org/schemas/sitemap/0.9}loc"
+        )
+    ]
