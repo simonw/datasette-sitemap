@@ -10,7 +10,7 @@ class SitemapConfig:
 
 def _sitemap_config(datasette):
     plugin_config = datasette.plugin_config("datasette-sitemap") or {}
-    if plugin_config.get("sql"):
+    if plugin_config.get("sql") or plugin_config.get("base_url"):
         return SitemapConfig(
             plugin_config.get("sql"),
             plugin_config.get("database"),
@@ -29,7 +29,7 @@ def register_routes(datasette):
 
 def _make_url_maker(datasette):
     config = _sitemap_config(datasette)
-    if config.base_url:
+    if config and config.base_url:
         return lambda _, path: config.base_url + path
     else:
         return lambda request, path: datasette.absolute_url(request, path)
@@ -47,14 +47,15 @@ async def sitemap_xml(datasette, request):
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     ]
     db = datasette.get_database(config.database)
-    for row in await db.execute(config.sql + " limit 50000"):
-        try:
-            path = row["path"]
-        except IndexError:
-            raise SitemapError("SQL query must return a path column")
-        if not path.startswith("/"):
-            raise SitemapError("Path '{}' must start with /".format(path))
-        content.append("<url><loc>{}</loc></url>".format(url(request, row["path"])))
+    if config.sql:
+        for row in await db.execute(config.sql + " limit 50000"):
+            try:
+                path = row["path"]
+            except IndexError:
+                raise SitemapError("SQL query must return a path column")
+            if not path.startswith("/"):
+                raise SitemapError("Path '{}' must start with /".format(path))
+            content.append("<url><loc>{}</loc></url>".format(url(request, row["path"])))
     content.append("</urlset>")
     return Response("\n".join(content), 200, content_type="application/xml")
 

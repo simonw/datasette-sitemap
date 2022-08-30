@@ -91,14 +91,9 @@ async def test_datasette_sitemap(
 async def test_datasette_sitemap_robots_txt(base_url):
     datasette = Datasette(
         memory=True,
-        metadata={
-            "plugins": {
-                "datasette-sitemap": {
-                    "sql": "select '/' as path",
-                    "base_url": base_url,
-                }
-            }
-        },
+        metadata={"plugins": {"datasette-sitemap": {"base_url": base_url}}}
+        if base_url
+        else {},
     )
     response = await datasette.client.get("/robots.txt")
     assert response.status_code == 200
