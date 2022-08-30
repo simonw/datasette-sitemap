@@ -1,9 +1,5 @@
 from datasette import hookimpl, Response
 
-ROBOTS_TXT = """
-Sitemap: https://www.niche-museums.com/sitemap.xml
-""".strip()
-
 
 class SitemapConfig:
     def __init__(self, sql, database, base_url):
@@ -27,7 +23,6 @@ def _sitemap_config(datasette):
 def register_routes(datasette):
     if _sitemap_config(datasette):
         return [
-            ("^/robots.txt$", robots_txt),
             ("^/sitemap.xml$", sitemap_xml),
         ]
 
@@ -38,11 +33,6 @@ def _make_url_maker(datasette):
         return lambda _, path: config.base_url + path
     else:
         return lambda request, path: datasette.absolute_url(request, path)
-
-
-def robots_txt(datasette, request):
-    url = _make_url_maker(datasette)
-    return Response.text("Sitemap: {}".format(url(request, "/sitemap.xml")))
 
 
 class SitemapError(Exception):
@@ -67,3 +57,9 @@ async def sitemap_xml(datasette, request):
         content.append("<url><loc>{}</loc></url>".format(url(request, row["path"])))
     content.append("</urlset>")
     return Response("\n".join(content), 200, content_type="application/xml")
+
+
+@hookimpl
+def block_robots_extra_lines(datasette, request):
+    url = _make_url_maker(datasette)
+    return ["Sitemap: {}".format(url(request, "/sitemap.xml"))]

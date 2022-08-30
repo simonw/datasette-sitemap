@@ -33,6 +33,6 @@ setup(
     packages=["datasette_sitemap"],
     entry_points={"datasette": ["sitemap = datasette_sitemap"]},
     install_requires=["datasette"],
-    extras_require={"test": ["pytest", "pytest-asyncio"]},
+    extras_require={"test": ["pytest", "pytest-asyncio", "datasette-block-robots"]},
     python_requires=">=3.7",
 )

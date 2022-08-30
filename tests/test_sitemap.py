@@ -103,6 +103,5 @@ async def test_datasette_sitemap_robots_txt(base_url):
     response = await datasette.client.get("/robots.txt")
     assert response.status_code == 200
     assert response.headers["content-type"] == "text/plain; charset=utf-8"
-    assert response.text == "Sitemap: {}/sitemap.xml".format(
-        base_url or "http://localhost"
-    )
+    expected = "Sitemap: {}/sitemap.xml".format(base_url or "http://localhost")
+    assert expected in response.text
