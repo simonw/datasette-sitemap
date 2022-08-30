@@ -85,6 +85,18 @@ plugins:
 ```
 [Try that query](https://datasette.io/content?sql=select+%27%2Fplugins%2F%27+||+name+as+path+from+plugins%0D%0Aunion%0D%0Aselect+%27%2Ftools%2F%27+||+name+as+path+from+tools%0D%0Aunion%0D%0Aselect+%27%2Fnews%27+as+path%0D%0A).
 
+## robots.txt
+
+This plugin adds a `robots.txt` file pointing to the sitemap:
+
+```
+Sitemap: http://example.com/sitemap.xml
+```
+
+You can take full control of the sitemap by installing and configuring the [datasette-block-robots](https://datasette.io/plugins/datasette-block-robots) plugin.
+
+This plugin will add the `Sitemap:` line even if you are using `datasette-block-robots` for the rest of your `robots.txt` file.
+
 ## Development
 
 To set up this plugin locally, first checkout the code. Then create a new virtual environment:
